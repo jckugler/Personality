@@ -13,7 +13,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The app works in local demo mode when Supabase variables are not configured. Local demo data stays in the same browser, so use Supabase mode for real team maps that need to work across devices. Add the values from `.env.example` to use Supabase.
+The app works in local demo mode when `NEON_DATABASE_URL` is not configured. Local demo data stays in the same browser, so use Vercel Postgres/Neon mode for real team maps that need to work across devices.
 
 ## Current Flow
 
@@ -24,15 +24,22 @@ The app works in local demo mode when Supabase variables are not configured. Loc
 5. If a result already exists, the person can open maps they already joined or add their result to another open map.
 6. Map pages ask for an email-linked URL and only show maps where that email has added a result. This is a product-level guard, not a replacement for real authentication.
 
-## Supabase
+## Vercel Database
 
-Run `supabase/schema.sql` in your Supabase SQL editor. The app expects:
+Use a Postgres database through the Vercel Marketplace, such as Neon.
+
+1. Open the Vercel project.
+2. Go to Storage or Marketplace.
+3. Add a Neon Postgres database.
+4. Connect it to this project.
+5. Confirm Vercel has a `NEON_DATABASE_URL` environment variable.
+6. Redeploy.
+
+The app creates these tables automatically when it first talks to the database:
 
 - `teams`
 - `participants`
 - `responses`
-
-For production, configure Supabase Auth and Row Level Security policies for your organization before sharing dashboard links broadly. The included schema is intentionally simple so the app can be wired up quickly, and the local demo mode is not an access-control system.
 
 ## Communication Tips
 
