@@ -23,12 +23,14 @@ type CreateParticipantPayload = {
 };
 
 export async function POST(request: Request) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ error: "DATABASE_URL is not configured." }, { status: 503 });
+  const databaseUrl = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    return NextResponse.json({ error: "NEON_DATABASE_URL is not configured." }, { status: 503 });
   }
 
   const body = (await request.json()) as DataRequest;
-  const sql = neon(process.env.DATABASE_URL);
+  const sql = neon(databaseUrl);
 
   try {
     await ensureSchema(sql);
@@ -69,11 +71,9 @@ function json(data: unknown) {
 }
 
 async function ensureSchema(sql: ReturnType<typeof neon>) {
-  await sql`create extension if not exists "pgcrypto"`;
-
   await sql`
     create table if not exists teams (
-      id uuid primary key default gen_random_uuid(),
+      id text primary key,
       name text not null,
       manager_name text not null,
       manager_email text not null,
@@ -84,8 +84,8 @@ async function ensureSchema(sql: ReturnType<typeof neon>) {
 
   await sql`
     create table if not exists participants (
-      id uuid primary key default gen_random_uuid(),
-      team_id uuid not null references teams(id) on delete cascade,
+      id text primary key,
+      team_id text not null references teams(id) on delete cascade,
       name text not null,
       email text not null,
       is_manager boolean not null default false,
@@ -101,8 +101,8 @@ async function ensureSchema(sql: ReturnType<typeof neon>) {
 
   await sql`
     create table if not exists responses (
-      id uuid primary key default gen_random_uuid(),
-      participant_id uuid not null references participants(id) on delete cascade,
+      id text primary key,
+      participant_id text not null references participants(id) on delete cascade,
       question_id integer not null,
       answer_value integer not null,
       color text not null check (color in ('Red', 'Yellow', 'Green', 'Blue')),
@@ -118,8 +118,8 @@ async function ensureSchema(sql: ReturnType<typeof neon>) {
 async function createTeam(sql: ReturnType<typeof neon>, payload?: Record<string, unknown>) {
   const inviteCode = makeInviteCode();
   const rows = await sql`
-    insert into teams (name, manager_name, manager_email, invite_code)
-    values (${String(payload?.name ?? "")}, ${String(payload?.managerName ?? "")}, ${String(payload?.managerEmail ?? "")}, ${inviteCode})
+    insert into teams (id, name, manager_name, manager_email, invite_code)
+    values (${crypto.randomUUID()}, ${String(payload?.name ?? "")}, ${String(payload?.managerName ?? "")}, ${String(payload?.managerEmail ?? "")}, ${inviteCode})
     returning *
   `;
 
@@ -169,6 +169,7 @@ async function listParticipants(sql: ReturnType<typeof neon>, payload?: Record<s
 async function createParticipant(sql: ReturnType<typeof neon>, payload: CreateParticipantPayload) {
   const participantRows = await sql`
     insert into participants (
+      id,
       team_id,
       name,
       email,
@@ -181,6 +182,7 @@ async function createParticipant(sql: ReturnType<typeof neon>, payload: CreatePa
       y_coord
     )
     values (
+      ${crypto.randomUUID()},
       ${payload.teamId},
       ${payload.name},
       ${payload.email.trim().toLowerCase()},
@@ -198,8 +200,8 @@ async function createParticipant(sql: ReturnType<typeof neon>, payload: CreatePa
 
   for (const response of payload.responses) {
     await sql`
-      insert into responses (participant_id, question_id, answer_value, color)
-      values (${participant.id}, ${response.question_id}, ${response.answer_value}, ${response.color})
+      insert into responses (id, participant_id, question_id, answer_value, color)
+      values (${crypto.randomUUID()}, ${participant.id}, ${response.question_id}, ${response.answer_value}, ${response.color})
     `;
   }
 
